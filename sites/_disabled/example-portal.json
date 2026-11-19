@@ -1,0 +1,21 @@
+{
+  "name": "example-county-bids",
+  "enabled": true,
+  "tags": ["example", "table-links"],
+  "template": "table-links",
+  "urls": ["https://bids.example.gov/solicitations"],
+  "selectors": {
+    "ready": ["table#bids", "main table"],
+    "row": ["table#bids tbody tr", "main table tbody tr"],
+    "link": "a[href$='.pdf'], a.download-doc",
+    "nextPage": "a[rel=next]"
+  },
+  "urlFilter": {
+    "include": "\\.(pdf|zip|docx)$"
+  },
+  "maxPages": 20,
+  "config": {
+    "concurrency": 2,
+    "blockResources": ["image", "font"]
+  }
+}

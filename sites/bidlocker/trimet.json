@@ -1,0 +1,6 @@
+{
+  "name": "bidlocker-trimet",
+  "tags": ["bidlocker", "oregon"],
+  "template": "bidlocker",
+  "agency": "trimet"
+}

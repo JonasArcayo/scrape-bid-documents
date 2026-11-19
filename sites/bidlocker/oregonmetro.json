@@ -1,0 +1,6 @@
+{
+  "name": "bidlocker-oregonmetro",
+  "tags": ["bidlocker", "oregon"],
+  "template": "bidlocker",
+  "agency": "oregonmetro"
+}

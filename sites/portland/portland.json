@@ -1,0 +1,19 @@
+{
+  "name": "portland",
+  "tags": ["oregon", "portland", "table-detail"],
+  "template": "table-detail",
+  "urls": ["https://www.portland.gov/business-opportunities/events/bids"],
+  "selectors": {
+    "ready": "main a[href*='/business-opportunities/events/20']",
+    "detailLink": "main a[href*='/business-opportunities/events/20']",
+    "hopLink": "a[href*='portal.us.bn.cloud.ariba.com']",
+    "detailReady": "button:has-text('Respond')",
+    "docLink": "button:has-text('Download'):not(:has-text('Download All'))"
+  },
+  "downloadMode": "click",
+  "config": {
+    "concurrency": 1,
+    "minDelayMs": 1000,
+    "maxDelayMs": 2000
+  }
+}

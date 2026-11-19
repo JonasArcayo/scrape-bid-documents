@@ -1,0 +1,21 @@
+{
+  "name": "oregonbuys",
+  "tags": ["oregon", "table-detail"],
+  "template": "table-detail",
+  "urls": ["https://oregonbuys.gov/bso/view/search/external/advancedSearchBid.xhtml?openBids=true"],
+  "selectors": {
+    "ready": "table a[href*='bidDetail']",
+    "row": "table tbody tr",
+    "detailLink": "a[href*='bidDetail']",
+    "docLink": "a[href^='javascript:downloadFile(']",
+    "nextPage": "a.ui-paginator-next:not(.ui-state-disabled)"
+  },
+  "downloadMode": "click",
+  "pageSettleMs": 1200,
+  "maxPages": 20,
+  "config": {
+    "concurrency": 1,
+    "minDelayMs": 1000,
+    "maxDelayMs": 2000
+  }
+}
