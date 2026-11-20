@@ -4,6 +4,7 @@ import type { DocumentRef } from '../../core/models.js';
 import { toSelectorList, type GenericTemplateConfig, type SelectorInput } from '../configSchema.js';
 import { extractByLocator, extractLinksFromTable, type ExtractedLink } from '../helpers/extract.js';
 import { clickNext } from '../helpers/paginate.js';
+import { buildFirecrawlAdapter, type FirecrawlAdapterDeps } from './firecrawl.js';
 import type { SiteAdapter, SiteContext } from '../types.js';
 
 /**
@@ -194,8 +195,70 @@ async function* discoverTableDetail(
   }
 }
 
+async function* discoverSingleHop(
+  cfg: Extract<GenericTemplateConfig, { template: 'link-list' | 'table-links' }>,
+  ctx: SiteContext,
+  matchesFilter: (href: string) => boolean,
+): AsyncGenerator<DocumentRef> {
+  const page = await ctx.newPage();
+  try {
+    for (const startUrl of cfg.urls) {
+      if (ctx.signal.aborted) return;
+      await ctx.rateLimit();
+      await page.goto(startUrl, { waitUntil: 'domcontentloaded' });
+
+      if (cfg.selectors.ready) {
+        await resolveSelector(page, cfg.selectors.ready, 'page ready marker', ctx);
+      }
+
+      const nextSel = await resolveOptionalSelector(page, cfg.selectors.nextPage);
+      const pages = nextSel
+        ? clickNext(page, { nextSelector: nextSel, maxPages: cfg.maxPages, signal: ctx.signal })
+        : (async function* () {
+            yield 1;
+          })();
+
+      for await (const pageNo of pages) {
+        if (ctx.signal.aborted) return;
+
+        let links: ExtractedLink[];
+        if (cfg.template === 'table-links') {
+          const rowSel = await resolveSelector(page, cfg.selectors.row, 'table row', ctx);
+          const linkSel = toSelectorList(cfg.selectors.link)[0]!;
+          links = await extractLinksFromTable(page, {
+            rowSelector: rowSel,
+            linkSelector: linkSel,
+          });
+        } else {
+          const linkSel = await resolveSelector(page, cfg.selectors.link, 'document link', ctx);
+          links = await extractByLocator(page.locator(linkSel));
+        }
+
+        if (links.length === 0 && pageNo === 1) {
+          ctx.logger.warn({ url: page.url() }, 'no matching links found on first page');
+        }
+
+        for (const link of links) {
+          if (!matchesFilter(link.href)) continue;
+          yield {
+            externalId: link.href,
+            title: link.text || undefined,
+            sourcePageUrl: page.url(),
+            download: { kind: 'url', url: link.href },
+          };
+        }
+      }
+    }
+  } finally {
+    await page.close();
+  }
+}
+
 /** Build a reusable SiteAdapter from a declarative JSON config. */
-export function buildTemplateAdapter(cfg: GenericTemplateConfig): SiteAdapter {
+export function buildTemplateAdapter(
+  cfg: GenericTemplateConfig,
+  deps: { firecrawl?: FirecrawlAdapterDeps } = {},
+): SiteAdapter {
   const matchesFilter = buildUrlPredicate(cfg.urlFilter);
 
   if (cfg.template === 'table-detail') {
@@ -211,57 +274,35 @@ export function buildTemplateAdapter(cfg: GenericTemplateConfig): SiteAdapter {
     config: cfg.config,
 
     async *discover(ctx: SiteContext): AsyncGenerator<DocumentRef> {
-      const page = await ctx.newPage();
       try {
-        for (const startUrl of cfg.urls) {
-          if (ctx.signal.aborted) return;
-          await ctx.rateLimit();
-          await page.goto(startUrl, { waitUntil: 'domcontentloaded' });
-
-          if (cfg.selectors.ready) {
-            await resolveSelector(page, cfg.selectors.ready, 'page ready marker', ctx);
-          }
-
-          const nextSel = await resolveOptionalSelector(page, cfg.selectors.nextPage);
-          const pages = nextSel
-            ? clickNext(page, { nextSelector: nextSel, maxPages: cfg.maxPages, signal: ctx.signal })
-            : (async function* () {
-                yield 1;
-              })();
-
-          for await (const pageNo of pages) {
-            if (ctx.signal.aborted) return;
-
-            let links: ExtractedLink[];
-            if (cfg.template === 'table-links') {
-              const rowSel = await resolveSelector(page, cfg.selectors.row!, 'table row', ctx);
-              const linkSel = toSelectorList(cfg.selectors.link)[0]!;
-              links = await extractLinksFromTable(page, {
-                rowSelector: rowSel,
-                linkSelector: linkSel,
-              });
-            } else {
-              const linkSel = await resolveSelector(page, cfg.selectors.link, 'document link', ctx);
-              links = await extractByLocator(page.locator(linkSel));
-            }
-
-            if (links.length === 0 && pageNo === 1) {
-              ctx.logger.warn({ url: page.url() }, 'no matching links found on first page');
-            }
-
-            for (const link of links) {
-              if (!matchesFilter(link.href)) continue;
-              yield {
-                externalId: link.href,
-                title: link.text || undefined,
-                sourcePageUrl: page.url(),
-                download: { kind: 'url', url: link.href },
-              };
-            }
-          }
+        yield* discoverSingleHop(cfg, ctx, matchesFilter);
+      } catch (err) {
+        const hasKey = Boolean(deps.firecrawl?.apiKey ?? process.env.FIRECRAWL_API_KEY);
+        if (!(err instanceof SiteChangedError) || !cfg.firecrawlFallback || !hasKey) {
+          throw err;
         }
-      } finally {
-        await page.close();
+        ctx.logger.warn(
+          { site: cfg.name, err: err.message },
+          'Playwright selectors failed; falling back to Firecrawl',
+        );
+        const fallback = buildFirecrawlAdapter(
+          {
+            name: cfg.name,
+            enabled: cfg.enabled,
+            tags: cfg.tags,
+            template: 'firecrawl',
+            urls: cfg.urls,
+            mode: 'scrape',
+            includeLinks: cfg.urlFilter?.include,
+            excludeLinks: cfg.urlFilter?.exclude,
+            limit: 100,
+            onlyMainContent: true,
+            waitForMs: 0,
+            config: cfg.config,
+          },
+          deps.firecrawl,
+        );
+        yield* fallback.discover(ctx);
       }
     },
   };

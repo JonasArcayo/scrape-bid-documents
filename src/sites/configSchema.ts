@@ -34,6 +34,7 @@ const LinkListSchema = z.object({
     nextPage: SelectorChain.optional(),
   }),
   urlFilter: UrlFilterSchema,
+  firecrawlFallback: z.boolean().default(false),
   maxPages: z.number().int().min(1).default(50),
 });
 
@@ -48,6 +49,7 @@ const TableLinksSchema = z.object({
     nextPage: SelectorChain.optional(),
   }),
   urlFilter: UrlFilterSchema,
+  firecrawlFallback: z.boolean().default(false),
   maxPages: z.number().int().min(1).default(50),
 });
 

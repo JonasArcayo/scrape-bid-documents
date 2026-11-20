@@ -1,7 +1,8 @@
 import { describe, expect, it, vi } from 'vitest';
-import { NonRetryableError, RetryableError } from '../../src/core/errors.js';
+import { NonRetryableError, RetryableError, SiteChangedError } from '../../src/core/errors.js';
 import { JsonSiteConfigSchema } from '../../src/sites/configSchema.js';
 import { buildFirecrawlAdapter } from '../../src/sites/templates/firecrawl.js';
+import { buildTemplateAdapter } from '../../src/sites/templates/generic.js';
 import type { SiteContext } from '../../src/sites/types.js';
 import { fastConfig, silentLogger } from '../helpers/fakes.js';
 
@@ -147,5 +148,50 @@ describe('firecrawl template', () => {
       fetchImpl: vi.fn<typeof fetch>().mockResolvedValue(new Response('busy', { status: 429 })),
     });
     await expect(adapter.discover(makeCtx()).next()).rejects.toThrow(RetryableError);
+  });
+
+  it('link-list falls back to Firecrawl on SiteChangedError when firecrawlFallback is true', async () => {
+    const cfg = JsonSiteConfigSchema.parse({
+      name: 'fc-fallback',
+      template: 'link-list',
+      urls: ['https://example.gov/bids'],
+      selectors: { link: 'a.missing' },
+      firecrawlFallback: true,
+    });
+    if (cfg.template !== 'link-list') throw new Error('unexpected template');
+
+    const fakePage = {
+      goto: async () => undefined,
+      url: () => 'https://example.gov/bids',
+      locator: () => ({
+        first: () => ({
+          waitFor: async () => {
+            throw new Error('timeout');
+          },
+        }),
+        count: async () => 0,
+      }),
+      close: async () => undefined,
+    } as unknown as Awaited<ReturnType<SiteContext['newPage']>>;
+
+    const fetchImpl = vi.fn<typeof fetch>().mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          success: true,
+          data: { links: ['https://example.gov/files/spec.pdf'] },
+        }),
+        { status: 200 },
+      ),
+    );
+
+    const adapter = buildTemplateAdapter(cfg, { firecrawl: { fetchImpl, apiKey: 'fc-key' } });
+    const ctx: SiteContext = { ...makeCtx(), newPage: async () => fakePage };
+
+    const refs = [];
+    for await (const ref of adapter.discover(ctx)) refs.push(ref);
+    expect(refs.map((r) => r.externalId)).toEqual(['https://example.gov/files/spec.pdf']);
+
+    const noFallback = buildTemplateAdapter({ ...cfg, firecrawlFallback: false });
+    await expect(noFallback.discover(ctx).next()).rejects.toThrow(SiteChangedError);
   });
 });
