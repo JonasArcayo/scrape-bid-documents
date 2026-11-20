@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { JsonSiteConfigSchema, type SiteMeta } from './configSchema.js';
 import { buildBidlockerAdapter } from './templates/bidlocker.js';
+import { buildFirecrawlAdapter } from './templates/firecrawl.js';
 import { buildTemplateAdapter } from './templates/generic.js';
 import type { SiteAdapter } from './types.js';
 
@@ -55,7 +56,11 @@ export function loadSiteConfigs(configDir: string): LoadedConfigs {
     if (!cfg.enabled) continue;
 
     const adapter =
-      cfg.template === 'bidlocker' ? buildBidlockerAdapter(cfg) : buildTemplateAdapter(cfg);
+      cfg.template === 'bidlocker'
+        ? buildBidlockerAdapter(cfg)
+        : cfg.template === 'firecrawl'
+          ? buildFirecrawlAdapter(cfg)
+          : buildTemplateAdapter(cfg);
     adapters.push(adapter);
     meta.set(cfg.name, {
       tags: cfg.tags,

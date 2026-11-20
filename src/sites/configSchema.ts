@@ -34,6 +34,7 @@ const LinkListSchema = z.object({
     nextPage: SelectorChain.optional(),
   }),
   urlFilter: UrlFilterSchema,
+  firecrawlFallback: z.boolean().default(false),
   maxPages: z.number().int().min(1).default(50),
 });
 
@@ -48,6 +49,7 @@ const TableLinksSchema = z.object({
     nextPage: SelectorChain.optional(),
   }),
   urlFilter: UrlFilterSchema,
+  firecrawlFallback: z.boolean().default(false),
   maxPages: z.number().int().min(1).default(50),
 });
 
@@ -76,11 +78,24 @@ const BidlockerSchema = z.object({
   agency: z.string().min(1),
 });
 
+const FirecrawlSchema = z.object({
+  ...BaseFields,
+  template: z.literal('firecrawl'),
+  urls: z.array(z.string().url()).min(1),
+  mode: z.enum(['scrape', 'map']).default('scrape'),
+  includeLinks: z.string().min(1).optional(),
+  excludeLinks: z.string().min(1).optional(),
+  limit: z.number().int().min(1).max(5000).default(100),
+  onlyMainContent: z.boolean().default(true),
+  waitForMs: z.number().int().min(0).default(0),
+});
+
 export const JsonSiteConfigSchema = z.discriminatedUnion('template', [
   LinkListSchema,
   TableLinksSchema,
   TableDetailSchema,
   BidlockerSchema,
+  FirecrawlSchema,
 ]);
 
 export type JsonSiteConfig = z.infer<typeof JsonSiteConfigSchema>;
@@ -89,6 +104,7 @@ export type GenericTemplateConfig =
   | z.infer<typeof TableLinksSchema>
   | z.infer<typeof TableDetailSchema>;
 export type BidlockerSiteConfig = z.infer<typeof BidlockerSchema>;
+export type FirecrawlSiteConfig = z.infer<typeof FirecrawlSchema>;
 
 export interface SiteMeta {
   tags: string[];
