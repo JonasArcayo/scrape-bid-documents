@@ -1,0 +1,13 @@
+{
+  "name": "example-firecrawl-bids",
+  "enabled": true,
+  "tags": ["example", "firecrawl"],
+  "template": "firecrawl",
+  "urls": ["https://bids.example.gov/solicitations"],
+  "mode": "scrape",
+  "includeLinks": "\\.(pdf|zip|docx)$",
+  "onlyMainContent": true,
+  "config": {
+    "concurrency": 2
+  }
+}
