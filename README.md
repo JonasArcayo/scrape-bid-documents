@@ -38,9 +38,10 @@ Drop a `.json` file anywhere under `sites/` (files/folders starting with `_`, li
 
 Available templates:
 
-- `link-list` — direct document links on one or more pages
-- `table-links` — direct document links inside table rows (`row` → `link`)
+- `link-list` — direct document links on one or more pages (supports `firecrawlFallback: true`)
+- `table-links` — direct document links inside table rows (`row` → `link`, supports `firecrawlFallback: true`)
 - `table-detail` — two-hop (or three-hop via `hopLink`) portals: listing → detail page → `url` or `click` download
+- `firecrawl` — selector-free link discovery via Firecrawl's `/v1/scrape` or `/v1/map` API (requires `FIRECRAWL_API_KEY`)
 - `bidlocker` — `bidlocker.us` agencies (`agency` slug + `.env` credentials)
 
 Check your config with `pnpm dev list` and test it with `pnpm dev run --site <name> --limit 2`.
@@ -108,7 +109,7 @@ Failures dump a screenshot + HTML to `data/debug/<site>/<timestamp>/`. Setting `
 
 ## Config Reference
 
-**Global (`.env` / environment):** `LOG_LEVEL` (`info`), `DATA_DIR` (`data`), `SESSIONS_DIR` (`sessions`), `DB_PATH` (`<DATA_DIR>/manifest.sqlite`), `HEADLESS` (`true`), `TRACE` (`false`), `FINGERPRINT` (`true`).
+**Global (`.env` / environment):** `LOG_LEVEL` (`info`), `DATA_DIR` (`data`), `SESSIONS_DIR` (`sessions`), `DB_PATH` (`<DATA_DIR>/manifest.sqlite`), `HEADLESS` (`true`), `TRACE` (`false`), `FINGERPRINT` (`true`), `FIRECRAWL_API_KEY` (optional, for `firecrawl` / `firecrawlFallback`), `FIRECRAWL_BASE_URL` (`https://api.firecrawl.dev`).
 
 **Per-site (`config` in JSON or `adapter.config`):**
 
